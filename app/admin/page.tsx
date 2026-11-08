@@ -20,7 +20,7 @@ export default function AdminPage() {
     FROM bookings b
     JOIN rooms r ON b.room_id = r.id
     ORDER BY b.created_at DESC
-  `).all() as BookingRow[]).map(b => ({ ...b }));
+  `).all() as unknown as BookingRow[]).map(b => ({ ...b }));
 
   const revenue = bookings
     .filter((b) => b.status === 'confirmed')
@@ -74,7 +74,7 @@ export default function AdminPage() {
                   <td className="px-4 py-3">
                     {b.status === 'confirmed' && (
                       <a
-                        href={`/api/bookings/${b.id}/ical`}
+                        href={`/api/bookings/${b.id}/ical?token=${encodeURIComponent(b.public_token ?? '')}`}
                         download
                         className="text-indigo-500 hover:text-indigo-700 text-xs font-medium"
                       >

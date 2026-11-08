@@ -19,19 +19,20 @@ interface BookingDetails {
 function SuccessContent() {
   const params = useSearchParams();
   const bookingId = params.get('booking_id');
+  const token = params.get('token');
   const [booking, setBooking] = useState<BookingDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!bookingId) { setLoading(false); return; }
+    if (!bookingId || !token) { setLoading(false); return; }
 
     let attempts = 0;
     const maxAttempts = 12; // 24 seconds
 
     const fetchBooking = async () => {
       try {
-        const res = await fetch(`/api/bookings/${bookingId}`);
+        const res = await fetch(`/api/bookings/${bookingId}?token=${encodeURIComponent(token)}`);
         const data = await res.json();
         if (data.error) { setError(data.error); setLoading(false); return; }
         setBooking(data);
@@ -48,7 +49,7 @@ function SuccessContent() {
     };
 
     fetchBooking();
-  }, [bookingId]);
+  }, [bookingId, token]);
 
   if (loading) {
     return (
@@ -114,7 +115,7 @@ function SuccessContent() {
       <div className="flex flex-col gap-3">
         {booking.status === 'confirmed' ? (
           <a
-            href={`/api/bookings/${booking.id}/ical`}
+            href={`/api/bookings/${booking.id}/ical?token=${encodeURIComponent(token ?? '')}`}
             download={`booking-${booking.id}.ics`}
             className="w-full py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors text-center block"
           >

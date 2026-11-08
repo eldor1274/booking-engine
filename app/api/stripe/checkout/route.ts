@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb, type Room } from '@/lib/db';
 import { stripe } from '@/lib/stripe';
+import { generateBookingToken } from '@/lib/token';
 
 function diffNights(checkIn: string, checkOut: string): number {
   return Math.round(
@@ -48,11 +49,12 @@ export async function POST(req: Request) {
 
     const total_price = parseFloat((nights * room.price_per_night).toFixed(2));
 
-    // Create pending booking first
+    // Create pending booking first, with a random token the guest needs to view it
+    const publicToken = generateBookingToken();
     const result = db.prepare(`
-      INSERT INTO bookings (room_id, guest_name, guest_email, check_in, check_out, nights, total_price, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
-    `).run(room_id, guest_name, guest_email, check_in, check_out, nights, total_price);
+      INSERT INTO bookings (room_id, guest_name, guest_email, check_in, check_out, nights, total_price, status, public_token)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+    `).run(room_id, guest_name, guest_email, check_in, check_out, nights, total_price, publicToken);
 
     const bookingId = result.lastInsertRowid;
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000';
@@ -75,7 +77,7 @@ export async function POST(req: Request) {
           quantity: 1,
         },
       ],
-      success_url: `${baseUrl}/booking/success?session_id={CHECKOUT_SESSION_ID}&booking_id=${bookingId}`,
+      success_url: `${baseUrl}/booking/success?session_id={CHECKOUT_SESSION_ID}&booking_id=${bookingId}&token=${publicToken}`,
       cancel_url: `${baseUrl}/booking/cancel?booking_id=${bookingId}`,
       metadata: {
         booking_id: bookingId.toString(),

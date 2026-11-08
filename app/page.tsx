@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export default function HomePage() {
   const db = getDb();
-  const rooms = (db.prepare('SELECT * FROM rooms ORDER BY price_per_night ASC').all() as Room[]).map(r => ({ ...r }));
+  const rooms = (db.prepare('SELECT * FROM rooms ORDER BY price_per_night ASC').all() as unknown as Room[]).map(r => ({ ...r }));
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-12">

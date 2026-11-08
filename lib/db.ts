@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
 import fs from 'fs';
+import { generateBookingToken } from './token';
 
 const DB_DIR = path.join(process.cwd(), 'data');
 const DB_PATH = path.join(DB_DIR, 'booking.db');
@@ -44,10 +45,30 @@ function initSchema(db: DatabaseSync): void {
       status TEXT NOT NULL DEFAULT 'pending',
       stripe_session_id TEXT,
       stripe_payment_intent TEXT,
+      public_token TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (room_id) REFERENCES rooms(id)
     );
   `);
+
+  migrateBookingTokens(db);
+}
+
+// Adds the public_token column to databases created before it existed, and
+// gives every existing booking a token so admin iCal links keep working.
+function migrateBookingTokens(db: DatabaseSync): void {
+  const columns = db.prepare('PRAGMA table_info(bookings)').all() as { name: string }[];
+  if (!columns.some((c) => c.name === 'public_token')) {
+    db.exec('ALTER TABLE bookings ADD COLUMN public_token TEXT');
+  }
+
+  const missing = db.prepare('SELECT id FROM bookings WHERE public_token IS NULL').all() as { id: number }[];
+  if (missing.length > 0) {
+    const update = db.prepare('UPDATE bookings SET public_token = ? WHERE id = ?');
+    for (const row of missing) update.run(generateBookingToken(), row.id);
+  }
+
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_public_token ON bookings(public_token)');
 }
 
 function seedRooms(db: DatabaseSync): void {
@@ -122,5 +143,6 @@ export interface Booking {
   status: 'pending' | 'confirmed' | 'cancelled';
   stripe_session_id: string | null;
   stripe_payment_intent: string | null;
+  public_token: string | null;
   created_at: string;
 }
